@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SL·Translate — Real-Time ASL Recognition</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">SL</span>
+      <span class="brand-name">Translate</span>
+      <span class="brand-sub">real-time ASL recognition · FastAPI + three.js</span>
+    </div>
+    <div class="topbar-right">
+      <span class="pill" id="model-badge" title="loaded from best_model.pth">ResNet18</span>
+      <span class="pill pill-muted" id="device-badge">CPU</span>
+      <span class="pill pill-status" id="conn-status"><i class="dot"></i><span id="conn-text">connecting…</span></span>
+      <select id="source-select" class="select" title="Input source">
+        <option value="webcam">Webcam</option>
+        <option value="image">Images…</option>
+      </select>
+      <input type="file" id="file-input" accept="image/*" hidden />
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel">
+      <div class="stage-head">
+        <h2>Camera</h2>
+        <div class="stage-head-right">
+          <span class="pill pill-hand" id="hand-pill">no hand</span>
+          <button class="icon-btn" id="cam-toggle" title="Stop" disabled>
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.72 0"/><path d="M12 2v10"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="stage-body" id="cam-body">
+        <video id="video" playsinline muted></video>
+        <img id="image-preview" alt="uploaded sign" hidden />
+        <canvas id="overlay"></canvas>
+        <div class="queue-strip" id="queue-strip" hidden></div>
+        <div class="placeholder" id="cam-placeholder">
+          <button class="btn btn-primary" id="start-btn">Start camera</button>
+          <p>Allow camera access, then show a hand sign in the frame.</p>
+          <div class="samples" id="samples" hidden></div>
+          <button class="btn btn-ghost" id="upload-btn" title="Pick many images — they are recognized one after another">
+            <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2.5"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="m21 15.5-4.5-4.5L5.5 22"/></svg>
+            Upload images…
+          </button>
+        </div>
+        <div class="hint" id="no-hand-hint" hidden>
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8V6a3 3 0 0 1 3-3h2"/><path d="M16 3h2a3 3 0 0 1 3 3v2"/><path d="M21 16v2a3 3 0 0 1-3 3h-2"/><path d="M8 21H6a3 3 0 0 1-3-3v-2"/><circle cx="12" cy="12" r="2.4"/></svg>
+          <span id="no-hand-text">show your hand</span>
+        </div>
+        <div class="letter-chip" id="letter-chip" hidden>
+          <svg class="conf-ring" viewBox="0 0 44 44">
+            <circle class="ring-bg" cx="22" cy="22" r="19"></circle>
+            <circle class="ring-fg" id="conf-ring" cx="22" cy="22" r="19"></circle>
+          </svg>
+          <span class="letter" id="letter-now">A</span>
+        </div>
+        <div class="toast" id="toast" hidden></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="stage-head">
+        <h2>3D Hand Mirror</h2>
+        <span class="pill pill-muted">three.js</span>
+      </div>
+      <div class="stage-body" id="scene-body">
+        <canvas id="scene"></canvas>
+        <div class="scene-caption">21 landmarks stream from FastAPI → rendered in 3D</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="dock">
+    <div class="dock-left">
+      <div class="word-card">
+        <div class="word" id="word"><span class="word-empty">spell something…</span></div>
+        <button class="icon-btn" id="speak-word-btn" title="Read the word aloud">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.6 5.4a10 10 0 0 1 0 13.2"/></svg>
+        </button>
+      </div>
+      <div class="dock-controls">
+        <button class="btn" id="space-btn" title="Insert a space">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="9.25" width="19" height="5.5" rx="2.75"/></svg>
+          Space
+        </button>
+        <button class="btn" id="backspace-btn" title="Delete last letter">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/><path d="M17.5 9.5 12.5 14.5"/><path d="M12.5 9.5 17.5 14.5"/></svg>
+        </button>
+        <button class="btn" id="clear-btn">Clear</button>
+        <button class="btn" id="copy-btn">Copy</button>
+        <button class="btn" id="snapshot-btn" title="Save a snapshot">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2.5l1.7-2.6a1 1 0 0 1 .84-.46h5.92a1 1 0 0 1 .84.46L17.5 7H20a2 2 0 0 1 2 2z"/><circle cx="12" cy="13.5" r="3.6"/></svg>
+        </button>
+        <button class="btn" id="speak-toggle" aria-pressed="false" title="Speak each recognized letter">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.6 5.4a10 10 0 0 1 0 13.2"/></svg>
+          Letters
+        </button>
+      </div>
+    </div>
+    <div class="dock-right">
+      <div class="top3" id="top3"></div>
+      <div class="stats">
+        <span id="stat-fps">— fps</span>
+        <span id="stat-lat">— ms</span>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+# SL·Translate backend dependencies
+#
+# torch is CPU-only on Windows; the extra index keeps the download small:
+#   python -m pip install torch torchvision --extra-index-url https://download.pytorch.org/whl/cpu
+#   python -m pip install -r backend\requirements.txt
+
+torch>=2.2
+torchvision>=0.17
+mediapipe>=0.10
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pillow>=10.0
+numpy
+huggingface_hub>=0.23
